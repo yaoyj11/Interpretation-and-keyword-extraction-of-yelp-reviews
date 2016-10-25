@@ -22,12 +22,19 @@ def parseWord((stars,text)):
     
 if __name__ == "__main__":
     num_partitions=10
-    inputdir="s3n://yelpyjyao/input/"
-    reviewfile="yelp_review_part.json"
-    businessfile="yelp_business_part.json"
+    s3dir="s3n://AKIAJ3Z6WETHI5EBPWAQ:7H82SDU1UdmyC7TuxFK6HMGDhBSKcSKckt9WL0Vm@yelpyjyao/"
+    inputdir=s3dir+"input/"
+    moduledir=s3dir+"module/"
+    #reviewfile="yelp_review_part.json"
+    #businessfile="yelp_business_part.json"
+    reviewfile="yelp_academic_dataset_review.json"
+    businessfile="yelp_academic_dataset_business.json"
+    master="ec2-54-172-47-222.compute-1.amazonaws.com"
+    masteraddr="spark://"+master+":7077"
     conf = SparkConf()
-    conf.setMaster("ec2-54-172-47-222.compute-1.amazonaws.com").setAppName("YELP")
+    conf.setMaster(masteraddr).setAppName("YELP")
     sc = SparkContext(conf=conf)
+    sc.addPyFile(moduledir+"parser.py")
     log4j = sc._jvm.org.apache.log4j
     log4j.LogManager.getRootLogger().setLevel(log4j.Level.ERROR)
 
@@ -40,6 +47,7 @@ if __name__ == "__main__":
     #     ...
     #(business_id,(stars,text))
     print("read reviews\n")
+    from parser import *
     reviews=sc.textFile(inputdir+reviewfile,num_partitions).map(parseReview)
     #(business_id,[categories])
     print("read restaurants\n")
@@ -53,13 +61,13 @@ if __name__ == "__main__":
             .map(lambda x: (x,1))\
             .reduceByKey(lambda x,y: x+y)
     positive=stars_wordcount.filter(lambda x:x[0][0]==1)\
-            .takeOrdered(50,lambda x:-x[1])
+            .takeOrdered(200,lambda x:-x[1])
     print("positive")
     for p in positive:
         print(p)
     print("negative")
     negative=stars_wordcount.filter(lambda x:x[0][0]==0)\
-            .takeOrdered(50,lambda x:-x[1])
+            .takeOrdered(200,lambda x:-x[1])
     for p in negative:
         print(p)
 
