@@ -22,11 +22,11 @@ def parseWord((stars,text)):
     
 if __name__ == "__main__":
     num_partitions=10
-    inputdir="yelp_dataset/"
+    inputdir="s3n://yelpyjyao/input/"
     reviewfile="yelp_review_part.json"
     businessfile="yelp_business_part.json"
     conf = SparkConf()
-    conf.setMaster("local").setAppName("YELP")
+    conf.setMaster("ec2-54-172-47-222.compute-1.amazonaws.com").setAppName("YELP")
     sc = SparkContext(conf=conf)
     log4j = sc._jvm.org.apache.log4j
     log4j.LogManager.getRootLogger().setLevel(log4j.Level.ERROR)
