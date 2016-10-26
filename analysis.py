@@ -9,6 +9,7 @@ from pyspark.mllib.classification import LogisticRegressionWithSGD
 from pyspark.mllib.regression import LabeledPoint
 import numpy
 from array import array
+import math
 
 def parseWord((stars,text)):
     res=[]
@@ -98,6 +99,7 @@ if __name__ == "__main__":
     reviewfile="yelp_review_part.json"
     businessfile="yelp_business_part.json"
     outputdir="output/"
+    modeldir=outputdir+"model"
     trainpath="train"
     validationpath="validate"
     testpath="test"
@@ -118,6 +120,7 @@ if __name__ == "__main__":
             .flatMap(parseWord)\
             .map(lambda x: (x,1))\
             .reduceByKey(lambda x,y: x+y)
+    print("training set size: "+str(train_set.count()))
     positive=stars_wordcount.filter(lambda x:x[0][0]==1)
     negative=stars_wordcount.filter(lambda x:x[0][0]==0)
 
@@ -145,10 +148,24 @@ if __name__ == "__main__":
     #valid_err
     valid_label_preds=validation_data.map(lambda point:(point.label,model.predict(point.features)))
     validErr=valid_label_preds.filter(lambda (v,p):v!=p).count()/float(validation_data.count())
-    print("validatio set")
-    validation_set.foreach(print)
-    print("validation error"+str(validErr))
+    TP=valid_label_preds.filter(lambda (v,p): v==1 and p ==1).count()
+    TN=valid_label_preds.filter(lambda (v,p): v==0 and p ==0).count()
+    FP=valid_label_preds.filter(lambda (v,p): v==0 and p ==1).count()
+    FN=valid_label_preds.filter(lambda (v,p): v==1 and p ==0).count()
 
+    print("validation error"+str(validErr))
+    print("precision "+str(TP/float(TP+FP)))
+    print("recall "+str(TP/float(TP+FN)))
+    print("F-measure "+str(2*(TP/float(TP+FP))*(TP/float(TP+FN))/(TP/float(TP+FP)+TP/float(TP+FN))))
+    coeff=[]
+    for i in range(len(features)):
+        coeff.append((features[i],model._coeff[i]))
+    #coeffrdd= sc.parallelize(coeff).foreach(print)
+    coeffrdd= sc.parallelize(coeff)
+    top=coeffrdd.takeOrdered(100,lambda x: -math.fabs(x[1]))
+    for e in top:
+        print(e)
+    coeffrdd.saveAsTextFile(modeldir)
     
 
 
