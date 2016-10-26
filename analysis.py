@@ -27,6 +27,19 @@ def parseStarsText(line):
     print(text)
     return (star,text)
 
+def mapLabeled(tup,features)
+    stars=tup[0]
+    text=tup[1]
+    words=re.split(r"\s+",remove_punctuation(text))
+    x=[]
+    for f in features:
+        x.append(words.count(f))
+    good=0
+    if stars>3:
+        good=1
+    return (x,1)
+
+
 #def writeFeatures(feature):
 #    f=open("features.txt","w")
 #    for line in f:
@@ -101,7 +114,6 @@ if __name__ == "__main__":
             .flatMap(parseWord)\
             .map(lambda x: (x,1))\
             .reduceByKey(lambda x,y: x+y)
-
     positive=stars_wordcount.filter(lambda x:x[0][0]==1)
     negative=stars_wordcount.filter(lambda x:x[0][0]==0)
 
@@ -112,8 +124,11 @@ if __name__ == "__main__":
         features.add(f[0][1])
     for f in nfeatures:
         features.add(f[0][1])
-
+    features=list(features)
     print(features)
     print(str(len(features))+" features get")
+
+    #parse data as labeled vectors
+    
 
 
