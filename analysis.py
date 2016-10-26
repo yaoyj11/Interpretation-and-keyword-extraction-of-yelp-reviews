@@ -16,13 +16,32 @@ def parseWord((stars,text)):
     line=remove_punctuation(text)
 
     words=re.split(r"\s+",line)
+    nonEmpty=[elem for elem in words if elem!=""]
 
-    for w in words:
-        if(w!=""):
-            if(stars>3):
-                res.append((1,w))
-            else:
-                res.append((0,w))
+    for w in nonEmpty:
+        if(stars>3):
+            res.append((1,w))
+        else:
+            res.append((0,w))
+    return res
+
+def parseMultiWord((stars,text)):
+    res=[]
+    line=remove_punctuation(text)
+
+    words=re.split(r"\s+",line)
+    nonEmpty=[elem for elem in words if elem!=""]
+    for w in nonEmpty:
+        if(stars>3):
+            res.append((1,w))
+        else:
+            res.append((0,w))
+    for i in range(len(nonEmpty)-1):
+        if(stars>3):
+            res.append((1,nonEmpty[i]+" "+nonEmpty[i+1]))
+        else:
+            res.append((0,nonEmpty[i]+" "+nonEmpty[i+1]))
+
     return res
 
 def parseStarsText(line):
@@ -36,9 +55,13 @@ def mapLabeled(tup,features):
     stars=tup[0]
     text=tup[1]
     words=re.split(r"\s+",remove_punctuation(text))
+    nonEmpty=[elem for elem in words if elem!=""]
+    s=""
+    for w in nonEmpty:
+        s=s+w+" "
     x=array('d')
     for f in features:
-        x.append(words.count(f))
+        x.append(s.count(f))
     good=0
     if stars>3:
         good=1
