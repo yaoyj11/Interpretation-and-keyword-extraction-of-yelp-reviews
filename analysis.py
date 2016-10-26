@@ -20,18 +20,26 @@ def parseWord((stars,text)):
                 res.append((0,w))
     return res
 
-def writeFeatures(feature):
-    featurefile=open("features.txt","w")
-    for f in features:
-        featurefile.write(f+"\n")
-    featurefile.close()
+def parseStarsText(line):
+    star=int(line[1:2])
+    text=line[6:-2]
+    print(line)
+    print(text)
+    return (star,text)
 
-def readFeatures(featurefile):
-    featurefile=open("features.txt")
-    feature=[]
-    for line in featurefile:
-        feature.append(line.replace("\n","")
-    featurefile.close()
+#def writeFeatures(feature):
+#    f=open("features.txt","w")
+#    for line in f:
+#        featurefile.write(line+"\n")
+#    f.close()
+#
+#def readFeatures(featurefile):
+#    f=open("features.txt")
+#    feature=[]
+#    for line in f:
+#        feature.append(line.replace("\n","")
+#    f.close()
+#    return feature
 
 def readFromDataset(sc,inputdir,reviewfile,businessfile,outputdir,trainpath,validationpath,testpath,num_partition=10):
     print("read reviews\n")
@@ -41,11 +49,14 @@ def readFromDataset(sc,inputdir,reviewfile,businessfile,outputdir,trainpath,vali
     restaurants=sc.textFile(inputdir+businessfile,num_partitions)\
             .map(parseBusiness)\
             .filter(lambda x:"Restaurants" in  x[1])
+
     print("filter reviews for restaurant")
+
     stars_text=reviews.join(restaurants)\
-            .map(lambda x:x[1][0])
-            .map(lambda x: (x,random.randint(0,9))
-    train_set=stars_text.filter(lambda x:x[1]<=7)\
+            .map(lambda x:x[1][0])\
+            .map(lambda x: (x,random.randint(0,9)))
+
+    train_set = stars_text.filter(lambda x:x[1]<=7)\
             .map(lambda x:x[0])
     train_set.saveAsTextFile(outputdir+trainpath)
     validation_set=stars_text.filter(lambda x:x[1]==8)\
@@ -58,9 +69,9 @@ def readFromDataset(sc,inputdir,reviewfile,businessfile,outputdir,trainpath,vali
     return train_set,validation_set,test_set
 
 def readProcessedData(sc,outputdir,trainpath,validationpath,testpath):
-    train_set=sc.textFile(outputdir+trainpath+"/*")
-    validation_set=sc.textFile(outputdir+validationpath+"/*")
-    test_set=sc.textFile(outputdir+testpath+"/*")
+    train_set=sc.textFile(outputdir+trainpath+"/*").map(parseStarsText)
+    validation_set=sc.textFile(outputdir+validationpath+"/*").map(parseStarsText)
+    test_set=sc.textFile(outputdir+testpath+"/*").map(parseStarsText)
     return train_set,validation_set,test_set
 
 
@@ -78,35 +89,30 @@ if __name__ == "__main__":
     sc = SparkContext(conf=conf)
     log4j = sc._jvm.org.apache.log4j
     log4j.LogManager.getRootLogger().setLevel(log4j.Level.ERROR)
+    print("Set log level to Error")
 
     # Initialize the spark context.
 
-    # Loads in input file. It should be in format of:
-    #     URL         neighbor URL
-    #     URL         neighbor URL
-    #     URL         neighbor URL
-    #     ...
     #(business_id,(stars,text))
-    (train_set,validation_set,test_set)=readFromDataset(sc,inputdir,reviewfile,businessfile,outputdir,trainpath,validationpath,testpath,num_partitions)
-    #(train_set,validation_set,test_set)=readProcessedData(sc,outputdir,trainpath,validationpath,testpath)
+    #(train_set,validation_set,test_set)=readFromDataset(sc,inputdir,reviewfile,businessfile,outputdir,trainpath,validationpath,testpath,num_partitions)
+    (train_set,validation_set,test_set)=readProcessedData(sc,outputdir,trainpath,validationpath,testpath)
 
-    stars_wordcount=train_text\
+    stars_wordcount=train_set\
             .flatMap(parseWord)\
             .map(lambda x: (x,1))\
             .reduceByKey(lambda x,y: x+y)
 
-    positive=stars_wordcount.filter(lambda x:x[0][0]==1)\
-            .sortByKey(ascending=False,keyfunc=lambda x:x[1])
+    positive=stars_wordcount.filter(lambda x:x[0][0]==1)
+    negative=stars_wordcount.filter(lambda x:x[0][0]==0)
 
-    print("positive")
-    negative=stars_wordcount.filter(lambda x:x[0][0]==0)\
-            .sortByKey(ascending=False,keyfunc=lambda x:x[1])
+    pfeatures=positive.takeOrdered(1000,key=lambda x:-x[1])
+    nfeatures=negative.takeOrdered(1000,key=lambda x:-x[1])
+    features=set()
+    for f in pfeatures:
+        features.add(f[0][1])
+    for f in nfeatures:
+        features.add(f[0][1])
 
-    features=set(positive.map(lambda x:x[0][1])\
-            .top(1000)\
-            +negative\
-            .map(lambda v:v[0][1])\
-            .top(1000))
     print(features)
     print(str(len(features))+" features get")
 
