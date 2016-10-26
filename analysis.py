@@ -140,7 +140,7 @@ if __name__ == "__main__":
     #(train_set,validation_set,test_set)=readProcessedData(sc,outputdir,trainpath,validationpath,testpath)
 
     stars_wordcount=train_set\
-            .flatMap(parseWord)\
+            .flatMap(parseMultiWord)\
             .map(lambda x: (x,1))\
             .reduceByKey(lambda x,y: x+y)
     print("training set size: "+str(train_set.count()))
