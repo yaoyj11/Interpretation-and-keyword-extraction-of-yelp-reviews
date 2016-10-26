@@ -5,6 +5,10 @@ from pyspark.context import SparkContext
 from parser import *
 import re
 import random
+from pyspark.mllib.classification import LogisticRegressionWithSGD
+from pyspark.mllib.regression import LabeledPoint
+import numpy
+from array import array
 
 def parseWord((stars,text)):
     res=[]
@@ -27,17 +31,17 @@ def parseStarsText(line):
     print(text)
     return (star,text)
 
-def mapLabeled(tup,features)
+def mapLabeled(tup,features):
     stars=tup[0]
     text=tup[1]
     words=re.split(r"\s+",remove_punctuation(text))
-    x=[]
+    x=array('d')
     for f in features:
         x.append(words.count(f))
     good=0
     if stars>3:
         good=1
-    return (x,1)
+    return LabeledPoint(good,x)
 
 
 #def writeFeatures(feature):
@@ -107,8 +111,8 @@ if __name__ == "__main__":
     # Initialize the spark context.
 
     #(business_id,(stars,text))
-    #(train_set,validation_set,test_set)=readFromDataset(sc,inputdir,reviewfile,businessfile,outputdir,trainpath,validationpath,testpath,num_partitions)
-    (train_set,validation_set,test_set)=readProcessedData(sc,outputdir,trainpath,validationpath,testpath)
+    (train_set,validation_set,test_set)=readFromDataset(sc,inputdir,reviewfile,businessfile,outputdir,trainpath,validationpath,testpath,num_partitions)
+    #(train_set,validation_set,test_set)=readProcessedData(sc,outputdir,trainpath,validationpath,testpath)
 
     stars_wordcount=train_set\
             .flatMap(parseWord)\
@@ -129,6 +133,22 @@ if __name__ == "__main__":
     print(str(len(features))+" features get")
 
     #parse data as labeled vectors
+    train_data=train_set.map(lambda x:mapLabeled(x,features))
+    validation_data=validation_set.map(lambda x:mapLabeled(x,features))
+    #train
+    print("training...")
+    model = LogisticRegressionWithSGD.train(train_data)
+    #train_err
+    train_label_preds=train_data.map(lambda point: (point.label,model.predict(point.features)))
+    trainErr=train_label_preds.filter(lambda (v,p): v!=p).count()/float(train_data.count())
+    print("training finished, training error: "+str(trainErr))
+    #valid_err
+    valid_label_preds=validation_data.map(lambda point:(point.label,model.predict(point.features)))
+    validErr=valid_label_preds.filter(lambda (v,p):v!=p).count()/float(validation_data.count())
+    print("validatio set")
+    validation_set.foreach(print)
+    print("validation error"+str(validErr))
+
     
 
 
