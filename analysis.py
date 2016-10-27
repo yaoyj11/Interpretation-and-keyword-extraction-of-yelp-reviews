@@ -119,7 +119,9 @@ def readProcessedData(sc,outputdir,trainpath,validationpath,testpath):
     test_set=sc.textFile(outputdir+testpath+"/*").map(parseStarsText)
     return train_set,validation_set,test_set
 
-def uniqueFeatures(pfeatures,nfeatures,count=100):
+def uniqueFeatures(pf,nf,count=100):
+    pfeatures=[elem[0][1] for elem in pf]
+    nfeatures=[elem[0][1] for elem in nf]
     uniquepf=[]
     uniquenf=[]
     for f in pfeatures:
@@ -154,8 +156,8 @@ if __name__ == "__main__":
     # Initialize the spark context.
 
     #(business_id,(stars,text))
-    (train_set,validation_set,test_set)=readFromDataset(sc,inputdir,reviewfile,businessfile,outputdir,trainpath,validationpath,testpath,num_partitions)
-    #(train_set,validation_set,test_set)=readProcessedData(sc,outputdir,trainpath,validationpath,testpath)
+    #(train_set,validation_set,test_set)=readFromDataset(sc,inputdir,reviewfile,businessfile,outputdir,trainpath,validationpath,testpath,num_partitions)
+    (train_set,validation_set,test_set)=readProcessedData(sc,outputdir,trainpath,validationpath,testpath)
 
     stars_wordcount=train_set\
             .flatMap(parseMultiWord)\
