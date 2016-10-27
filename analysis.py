@@ -119,6 +119,20 @@ def readProcessedData(sc,outputdir,trainpath,validationpath,testpath):
     test_set=sc.textFile(outputdir+testpath+"/*").map(parseStarsText)
     return train_set,validation_set,test_set
 
+def uniqueFeatures(pfeatures,nfeatures,count=100):
+    uniquepf=[]
+    uniquenf=[]
+    for f in pfeatures:
+        if f not in nfeatures:
+            uniquepf.append(f)
+    for f in nfeatures:
+        if f not in pfeatures:
+            uniquenf.append(f)
+    print("unique positive features")
+    print(uniquepf[0:count])
+    print("negative features")
+    print(uniquenf[0:count])
+    return uniquepf[0:count],uniquenf[0:count]
 
 if __name__ == "__main__":
     num_partitions=10
@@ -153,46 +167,47 @@ if __name__ == "__main__":
 
     pfeatures=positive.takeOrdered(1000,key=lambda x:-x[1])
     nfeatures=negative.takeOrdered(1000,key=lambda x:-x[1])
-    features=set()
-    for f in pfeatures:
-        features.add(f[0][1])
-    for f in nfeatures:
-        features.add(f[0][1])
-    features=list(features)
-    print(features)
-    print(str(len(features))+" features get")
+    (uniquepf,uniquenf)=uniqueFeatures(pfeatures,nfeatures)
+    #features=set()
+    #for f in pfeatures:
+    #    features.add(f[0][1])
+    #for f in nfeatures:
+    #    features.add(f[0][1])
+    #features=list(features)
+    #print(features)
+    #print(str(len(features))+" features get")
 
-    #parse data as labeled vectors
-    train_data=train_set.map(lambda x:mapLabeled(x,features))
-    validation_data=validation_set.map(lambda x:mapLabeled(x,features))
-    #train
-    print("training...")
-    model = LogisticRegressionWithSGD.train(train_data)
-    #train_err
-    train_label_preds=train_data.map(lambda point: (point.label,model.predict(point.features)))
-    trainErr=train_label_preds.filter(lambda (v,p): v!=p).count()/float(train_data.count())
-    print("training finished, training error: "+str(trainErr))
-    #valid_err
-    valid_label_preds=validation_data.map(lambda point:(point.label,model.predict(point.features)))
-    validErr=valid_label_preds.filter(lambda (v,p):v!=p).count()/float(validation_data.count())
-    TP=valid_label_preds.filter(lambda (v,p): v==1 and p ==1).count()
-    TN=valid_label_preds.filter(lambda (v,p): v==0 and p ==0).count()
-    FP=valid_label_preds.filter(lambda (v,p): v==0 and p ==1).count()
-    FN=valid_label_preds.filter(lambda (v,p): v==1 and p ==0).count()
+    ##parse data as labeled vectors
+    #train_data=train_set.map(lambda x:mapLabeled(x,features))
+    #validation_data=validation_set.map(lambda x:mapLabeled(x,features))
+    ##train
+    #print("training...")
+    #model = LogisticRegressionWithSGD.train(train_data)
+    ##train_err
+    #train_label_preds=train_data.map(lambda point: (point.label,model.predict(point.features)))
+    #trainErr=train_label_preds.filter(lambda (v,p): v!=p).count()/float(train_data.count())
+    #print("training finished, training error: "+str(trainErr))
+    ##valid_err
+    #valid_label_preds=validation_data.map(lambda point:(point.label,model.predict(point.features)))
+    #validErr=valid_label_preds.filter(lambda (v,p):v!=p).count()/float(validation_data.count())
+    #TP=valid_label_preds.filter(lambda (v,p): v==1 and p ==1).count()
+    #TN=valid_label_preds.filter(lambda (v,p): v==0 and p ==0).count()
+    #FP=valid_label_preds.filter(lambda (v,p): v==0 and p ==1).count()
+    #FN=valid_label_preds.filter(lambda (v,p): v==1 and p ==0).count()
 
-    print("validation error"+str(validErr))
-    print("precision "+str(TP/float(TP+FP)))
-    print("recall "+str(TP/float(TP+FN)))
-    print("F-measure "+str(2*(TP/float(TP+FP))*(TP/float(TP+FN))/(TP/float(TP+FP)+TP/float(TP+FN))))
-    coeff=[]
-    for i in range(len(features)):
-        coeff.append((features[i],model._coeff[i]))
-    #coeffrdd= sc.parallelize(coeff).foreach(print)
-    coeffrdd= sc.parallelize(coeff)
-    top=coeffrdd.takeOrdered(100,lambda x: -math.fabs(x[1]))
-    for e in top:
-        print(e)
-    coeffrdd.saveAsTextFile(modeldir)
-    
+    #print("validation error"+str(validErr))
+    #print("precision "+str(TP/float(TP+FP)))
+    #print("recall "+str(TP/float(TP+FN)))
+    #print("F-measure "+str(2*(TP/float(TP+FP))*(TP/float(TP+FN))/(TP/float(TP+FP)+TP/float(TP+FN))))
+    #coeff=[]
+    #for i in range(len(features)):
+    #    coeff.append((features[i],model._coeff[i]))
+    ##coeffrdd= sc.parallelize(coeff).foreach(print)
+    #coeffrdd= sc.parallelize(coeff)
+    #top=coeffrdd.takeOrdered(100,lambda x: -math.fabs(x[1]))
+    #for e in top:
+    #    print(e)
+    #coeffrdd.saveAsTextFile(modeldir)
+    #
 
 
