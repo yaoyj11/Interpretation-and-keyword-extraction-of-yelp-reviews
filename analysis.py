@@ -61,7 +61,11 @@ def mapLabeled(tup,features):
         s=s+w+" "
     x=array('d')
     for f in features:
-        x.append(s.count(f))
+        #x.append(s.count(f))
+        if(s.count(f)>0):
+            x.append(1)
+        else:
+            x.append(0)
     good=0
     if stars>3:
         good=1
