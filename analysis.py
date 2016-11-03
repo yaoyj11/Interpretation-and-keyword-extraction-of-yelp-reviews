@@ -25,6 +25,29 @@ def parseWord((stars,text)):
             res.append((0,w))
     return res
 
+def tryprint(text):
+    try:
+        print(text)
+    except:
+        print("print error")
+    
+
+def parseWordNLTK((stars,text)):
+    import nltk
+    res=[]
+    words=nltk.word_tokenize(text)
+    wtags=nltk.pos_tag(words)
+    tryprint(text)
+    types=["CC","CD","CT","JJ","JJR","JJS","MD","NN","NNP","NNPS","NNS","PDT","RB","RBR","RBS","VB","VBD","VBG","VBN","VBP","VBZ"]
+    for elem in wtags:
+        if(elem[1] in types):
+            if(stars>3):
+                res.append((1,elem[0]))
+            else:
+                res.append((0,elem[0]))
+    return res
+
+
 def parseMultiWord((stars,text)):
     res=[]
     line=remove_punctuation(text)
@@ -160,7 +183,7 @@ if __name__ == "__main__":
     #(train_set,validation_set,test_set)=readProcessedData(sc,outputdir,trainpath,validationpath,testpath)
 
     stars_wordcount=train_set\
-            .flatMap(parseMultiWord)\
+            .flatMap(parseWordNLTK)\
             .map(lambda x: (x,1))\
             .reduceByKey(lambda x,y: x+y)
     print("training set size: "+str(train_set.count()))
