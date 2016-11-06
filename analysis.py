@@ -49,6 +49,7 @@ def parseWordNLTK((stars,text)):
 
 def parseMultiWordNLTK((stars,text)):
     res=[]
+    import nltk
     words=nltk.word_tokenize(text)
     wtags=nltk.pos_tag(words)
     #tryprint(text)
@@ -96,6 +97,7 @@ def parseStarsText(line):
     return (star,text)
 
 def mapLabeled(tup,features):
+    import nltk
     stars=tup[0]
     text=tup[1]
     words=re.split(r"\s+",remove_punctuation(text))
@@ -118,6 +120,7 @@ def mapLabeled(tup,features):
 def mapLabeledNLTK(tup,features):
     stars=tup[0]
     text=tup[1]
+    import nltk
     words=nltk.word_tokenize(text)
     wtags=nltk.pos_tag(words)
     #tryprint(text)
@@ -126,9 +129,9 @@ def mapLabeledNLTK(tup,features):
     l=[]
     for elem in wtags:
         if(elem[1] in types):
-            res.append(elem[0])
+            l.append(elem[0])
             if(lastw!=""):
-                res.append(lastw+" "+elem[0])
+                l.append(lastw+" "+elem[0])
             lastw=elem[0]
     x=[]
     for f in features:
@@ -230,7 +233,7 @@ if __name__ == "__main__":
     #(train_set,validation_set,test_set)=readProcessedData(sc,outputdir,trainpath,validationpath,testpath)
 
     stars_wordcount=train_set\
-            .flatMap(parseWordNLTK)\
+            .flatMap(parseMultiWordNLTK)\
             .map(lambda x: (x,1))\
             .reduceByKey(lambda x,y: x+y)
     print("training set size: "+str(train_set.count()))
@@ -263,7 +266,7 @@ if __name__ == "__main__":
         occurencies[f]=c1+c2
 
     #parse data as labeled vectors
-    train_data=train_set.map(lambda x:mapLabeled(x,features))
+    train_data=train_set.map(lambda x:mapLabeledNLTK(x,features))
     validation_data=validation_set.map(lambda x:mapLabeled(x,features))
     #train
     print("training...")
