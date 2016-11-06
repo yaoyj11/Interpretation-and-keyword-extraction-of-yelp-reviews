@@ -47,6 +47,27 @@ def parseWordNLTK((stars,text)):
                 res.append((0,elem[0]))
     return res
 
+def parseMultiWordNLTK((stars,text)):
+    res=[]
+    words=nltk.word_tokenize(text)
+    wtags=nltk.pos_tag(words)
+    #tryprint(text)
+    types=["DT","JJ","JJR","JJS","MD","NN","NNP","NNPS","NNS","PDT","RB","RBR","RBS","VB","VBD","VBG","VBN","VBP","VBZ"]
+    lastw=""
+    for elem in wtags:
+        if(elem[1] in types):
+            if(stars>3):
+                res.append((1,elem[0]))
+            else:
+                res.append((0,elem[0]))
+            if(lastw!=""):
+                if(stars>3):
+                    res.append((1,lastw+" "+elem[0]))
+                else:
+                    res.append((0,lastw+" "+elem[0]))
+            lastw=elem[0]
+    return res
+
 
 def parseMultiWord((stars,text)):
     res=[]
@@ -94,6 +115,32 @@ def mapLabeled(tup,features):
         good=1
     return LabeledPoint(good,x)
 
+def mapLabeledNLTK(tup,features):
+    stars=tup[0]
+    text=tup[1]
+    words=nltk.word_tokenize(text)
+    wtags=nltk.pos_tag(words)
+    #tryprint(text)
+    types=["DT","JJ","JJR","JJS","MD","NN","NNP","NNPS","NNS","PDT","RB","RBR","RBS","VB","VBD","VBG","VBN","VBP","VBZ"]
+    lastw=""
+    l=[]
+    for elem in wtags:
+        if(elem[1] in types):
+            res.append(elem[0])
+            if(lastw!=""):
+                res.append(lastw+" "+elem[0])
+            lastw=elem[0]
+    x=[]
+    for f in features:
+        #x.append(s.count(f))
+        if(f in l):
+            x.append(1)
+        else:
+            x.append(0)
+    good=0
+    if stars>3:
+        good=1
+    return LabeledPoint(good,x)
 
 #def writeFeatures(feature):
 #    f=open("features.txt","w")
