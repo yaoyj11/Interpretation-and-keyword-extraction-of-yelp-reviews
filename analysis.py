@@ -10,6 +10,7 @@ from pyspark.mllib.regression import LabeledPoint
 import numpy
 from array import array
 import math
+#test
 
 def parseWord((stars,text)):
     res=[]
