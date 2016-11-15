@@ -92,8 +92,8 @@ def parseMultiWord((stars,text)):
 def parseStarsText(line):
     star=int(line[1:2])
     text=line[6:-2]
-    print(line)
-    print(text)
+    tryprint(line)
+    tryprint(text)
     return (star,text)
 
 def mapLabeled(tup,features):
@@ -121,6 +121,7 @@ def mapLabeledNLTK(tup,features,types):
     stars=tup[0]
     text=tup[1]
     import nltk
+    #tryprint(text)
     words=nltk.word_tokenize(text)
     wtags=nltk.pos_tag(words)
     #tryprint(text)
@@ -144,12 +145,40 @@ def mapLabeledNLTK(tup,features,types):
         good=1
     return LabeledPoint(good,x)
 
-def mapSentences(text):
+def mapSentences(tup):
+    bid=tup[0]
+    text=tup[1][1]
     ss=re.split(r"[,\.]",text)
-    return ss
+    res=[]
+    for s in ss:
+        if(remove_punctuation(s).replace(" ","")!=""):
+            res.append((bid,ss))
+    return res
 
-def getKeyWords(tup,coeff,types):
-    return 0
+def getKeyWords(tup,coeff,types=[]):
+    bid=tup[0]
+    text=tup[1][1]
+    import nltk
+    words=nltk.word_tokenize(text)
+    wtags=nltk.pos_tag(words)
+    #tryprint(text)
+    lastw=""
+    allwords=[]
+    for elem in wtags:
+        if elem[1] in types:
+            allwords.append(elem[0])
+            if(lastw!=""):
+                allwords.append(lastw+" "+elem[0])
+            lastw=elem[0]
+    coeff_of_sentence=0
+    for w in allwords:
+        if w in coeff:
+            coeff_of_sentence+=coeff[w]
+    res=[]
+    for elem in wtags:
+        if elem[1] in ["NN","NNP","NNPS","NNS"]:
+            res.append(((bid,elem[0]),coeff_of_sentence))
+    return res
 
 #def writeFeatures(feature):
 #    f=open("features.txt","w")
@@ -177,7 +206,7 @@ def readFromDataset(sc,inputdir,reviewfile,businessfile,outputdir,trainpath,vali
     print("filter reviews for restaurant")
 
     stars_text=reviews.join(restaurants)\
-            .map(lambda x:(x[0],x[1][0])\
+            .map(lambda x:(x[0],x[1][0]))\
             .map(lambda x: (x,random.randint(0,9)))
 
     train_set = stars_text.filter(lambda x:x[1]<=7)\
@@ -215,6 +244,18 @@ def uniqueFeatures(pf,nf,count=100):
     print(uniquenf[0:count])
     return uniquepf[0:count],uniquenf[0:count]
 
+#input (bid,[(word,score)])
+def topN(tup,N):
+    bid=tup[0]
+    words=[x for x in tup[1]]
+    words=sorted(words,key=lambda x:x[1])
+    res=[]
+    if(len(words)>2*N):
+        res=(words[0:N],words[len(words)-N:-1])
+    else:
+        res=(words,words)
+    return (bid,res)
+
 if __name__ == "__main__":
     num_partitions=10
     inputdir="yelp_dataset/"
@@ -222,6 +263,7 @@ if __name__ == "__main__":
     businessfile="yelp_business_part.json"
     outputdir="output/"
     modeldir=outputdir+"model"
+    kwdir=outputdir+"kw"
     trainpath="train"
     validationpath="validate"
     testpath="test"
@@ -232,6 +274,7 @@ if __name__ == "__main__":
     log4j.LogManager.getRootLogger().setLevel(log4j.Level.ERROR)
     print("Set log level to Error")
     types=["DT","JJ","JJR","JJS","MD","NN","NNP","NNPS","NNS","PDT","RB","RBR","RBS","VB","VBD","VBG","VBN","VBP","VBZ"]
+    N=15
 
     # Initialize the spark context.
 
@@ -240,7 +283,7 @@ if __name__ == "__main__":
     #(train_set,validation_set,test_set)=readProcessedData(sc,outputdir,trainpath,validationpath,testpath)
 
     stars_wordcount=train_set\
-            .map(lambda x: x[1]\
+            .map(lambda x: x[1])\
             .flatMap(lambda x:parseMultiWordNLTK(x,types))\
             .map(lambda x: (x,1))\
             .reduceByKey(lambda x,y: x+y)
@@ -281,7 +324,9 @@ if __name__ == "__main__":
         occurencies[f]=c1+c2
 
     #parse data as labeled vectors
-    train_data=train_set.map(lambda x:mapLabeledNLTK(x,features,types))
+    train_data=train_set\
+            .map(lambda x:x[1])\
+            .map(lambda x:mapLabeledNLTK(x,features,types))
     validation_data=validation_set\
         .map(lambda x:x[1])\
         .map(lambda x:mapLabeledNLTK(x,features,types))
@@ -325,8 +370,20 @@ if __name__ == "__main__":
     #####
     #Task 3: Find representative words for each restaurant.
     #####
+    coeffmap={}
+    for c in coeff:
+        coeffmap[c[0]]=c[1]
     dataset=train_set.union(validation_set).union(test_set)
-    
+    keywords=dataset\
+        .flatMap(mapSentences)\
+        .flatMap(lambda x:getKeyWords(x,coeffmap,types))\
+        .reduceByKey(lambda x,y:x+y)\
+        .map(lambda x:(x[0][0],(x[0][1],x[1])))\
+        .groupByKey()\
+        .map(lambda x:topN(x,N))
+#        .saveAsTextFile(kwdir)
+    #    .foreach(print)
+    keywords.saveAsTextFile(kwdir)
 
-
+    keywords.foreach(print)
 
