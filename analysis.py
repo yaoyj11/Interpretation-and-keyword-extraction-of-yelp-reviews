@@ -144,6 +144,13 @@ def mapLabeledNLTK(tup,features,types):
         good=1
     return LabeledPoint(good,x)
 
+def mapSentences(text):
+    ss=re.split(r"[,\.]",text)
+    return ss
+
+def getKeyWords(tup,coeff,types):
+    return 0
+
 #def writeFeatures(feature):
 #    f=open("features.txt","w")
 #    for line in f:
@@ -170,7 +177,7 @@ def readFromDataset(sc,inputdir,reviewfile,businessfile,outputdir,trainpath,vali
     print("filter reviews for restaurant")
 
     stars_text=reviews.join(restaurants)\
-            .map(lambda x:x[1][0])\
+            .map(lambda x:(x[0],x[1][0])\
             .map(lambda x: (x,random.randint(0,9)))
 
     train_set = stars_text.filter(lambda x:x[1]<=7)\
@@ -233,6 +240,7 @@ if __name__ == "__main__":
     #(train_set,validation_set,test_set)=readProcessedData(sc,outputdir,trainpath,validationpath,testpath)
 
     stars_wordcount=train_set\
+            .map(lambda x: x[1]\
             .flatMap(lambda x:parseMultiWordNLTK(x,types))\
             .map(lambda x: (x,1))\
             .reduceByKey(lambda x,y: x+y)
@@ -274,7 +282,9 @@ if __name__ == "__main__":
 
     #parse data as labeled vectors
     train_data=train_set.map(lambda x:mapLabeledNLTK(x,features,types))
-    validation_data=validation_set.map(lambda x:mapLabeledNLTK(x,features,types))
+    validation_data=validation_set\
+        .map(lambda x:x[1])\
+        .map(lambda x:mapLabeledNLTK(x,features,types))
     #train
     print("training...")
     model = LogisticRegressionWithSGD.train(train_data)
@@ -304,15 +314,19 @@ if __name__ == "__main__":
     FP=valid_label_preds.filter(lambda (v,p): v==0 and p ==1).count()
     FN=valid_label_preds.filter(lambda (v,p): v==1 and p ==0).count()
 
-    print("validation error"+str(validErr))
-    print("precision "+str(TP/float(TP+FP)))
-    print("recall "+str(TP/float(TP+FN)))
-    print("F-measure "+str(2*(TP/float(TP+FP))*(TP/float(TP+FN))/(TP/float(TP+FP)+TP/float(TP+FN))))
+    try:
+        print("validation error"+str(validErr))
+        print("precision "+str(TP/float(TP+FP)))
+        print("recall "+str(TP/float(TP+FN)))
+        print("F-measure "+str(2*(TP/float(TP+FP))*(TP/float(TP+FN))/(TP/float(TP+FP)+TP/float(TP+FN))))
+    except:
+        print("error")
 
     #####
     #Task 3: Find representative words for each restaurant.
     #####
-    dataset=train_set++validation_set++test_set
+    dataset=train_set.union(validation_set).union(test_set)
+    
 
 
 
