@@ -90,11 +90,20 @@ def parseMultiWord((stars,text)):
     return res
 
 def parseStarsText(line):
-    star=int(line[1:2])
-    text=line[6:-2]
+    star=int(line[29:30])
+    text=line[34:-3]
+    bid=line[3:25]
     tryprint(line)
     tryprint(text)
-    return (star,text)
+    return (bid,(star,text))
+
+def parseModel(line):
+    line=line[2:-1]
+    s=line.split(", ")
+    word=s[0][1:-1]
+    coeff=float(s[1])
+    score=float(s[2])
+    return (word,coeff,score)
 
 def mapLabeled(tup,features):
     import nltk
@@ -257,6 +266,12 @@ def topN(tup,N):
     return (bid,res)
 
 if __name__ == "__main__":
+    conf = SparkConf()
+    conf.setMaster("local").setAppName("YELP")
+    sc = SparkContext(conf=conf)
+    log4j = sc._jvm.org.apache.log4j
+    log4j.LogManager.getRootLogger().setLevel(log4j.Level.ERROR)
+    print("Set log level to Error")
     num_partitions=10
     inputdir="yelp_dataset/"
     reviewfile="yelp_review_part.json"
@@ -267,20 +282,14 @@ if __name__ == "__main__":
     trainpath="train"
     validationpath="validate"
     testpath="test"
-    conf = SparkConf()
-    conf.setMaster("local").setAppName("YELP")
-    sc = SparkContext(conf=conf)
-    log4j = sc._jvm.org.apache.log4j
-    log4j.LogManager.getRootLogger().setLevel(log4j.Level.ERROR)
-    print("Set log level to Error")
     types=["DT","JJ","JJR","JJS","MD","NN","NNP","NNPS","NNS","PDT","RB","RBR","RBS","VB","VBD","VBG","VBN","VBP","VBZ"]
     N=15
 
     # Initialize the spark context.
 
     #(business_id,(stars,text))
-    (train_set,validation_set,test_set)=readFromDataset(sc,inputdir,reviewfile,businessfile,outputdir,trainpath,validationpath,testpath,num_partitions)
-    #(train_set,validation_set,test_set)=readProcessedData(sc,outputdir,trainpath,validationpath,testpath)
+    #(train_set,validation_set,test_set)=readFromDataset(sc,inputdir,reviewfile,businessfile,outputdir,trainpath,validationpath,testpath,num_partitions)
+    (train_set,validation_set,test_set)=readProcessedData(sc,outputdir,trainpath,validationpath,testpath)
 
     stars_wordcount=train_set\
             .map(lambda x: x[1])\
@@ -370,6 +379,8 @@ if __name__ == "__main__":
     #####
     #Task 3: Find representative words for each restaurant.
     #####
+    coeffrdd=sc.textFile(modeldir+"/*").map(parseModel) 
+    coeff=coeffrdd.collect()
     coeffmap={}
     for c in coeff:
         coeffmap[c[0]]=c[1]
