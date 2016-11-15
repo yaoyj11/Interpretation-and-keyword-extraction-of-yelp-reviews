@@ -126,22 +126,8 @@ def mapLabeled(tup,features):
         good=1
     return LabeledPoint(good,x)
 
-def mapLabeledNLTK(tup,features,types):
-    stars=tup[0]
-    text=tup[1]
-    import nltk
-    #tryprint(text)
-    words=nltk.word_tokenize(text)
-    wtags=nltk.pos_tag(words)
-    #tryprint(text)
-    lastw=""
-    l=[]
-    for elem in wtags:
-        if(elem[1] in types):
-            l.append(elem[0])
-            if(lastw!=""):
-                l.append(lastw+" "+elem[0])
-            lastw=elem[0]
+def mapLabeledNLTK(tups,features,types):
+    l=[x[1] for x in tups]
     x=[]
     for f in features:
         #x.append(s.count(f))
@@ -149,10 +135,7 @@ def mapLabeledNLTK(tup,features,types):
             x.append(1)
         else:
             x.append(0)
-    good=0
-    if stars>3:
-        good=1
-    return LabeledPoint(good,x)
+    return LabeledPoint(tups[0][0],x)
 
 def mapSentences(tup):
     bid=tup[0]
@@ -291,9 +274,11 @@ if __name__ == "__main__":
     #(train_set,validation_set,test_set)=readFromDataset(sc,inputdir,reviewfile,businessfile,outputdir,trainpath,validationpath,testpath,num_partitions)
     (train_set,validation_set,test_set)=readProcessedData(sc,outputdir,trainpath,validationpath,testpath)
 
-    stars_wordcount=train_set\
+    stars_words=train_set\
             .map(lambda x: x[1])\
-            .flatMap(lambda x:parseMultiWordNLTK(x,types))\
+            .map(lambda x:parseMultiWordNLTK(x,types))
+    stars_wordcount=stars_words\
+            .flatMap(lambda x:x)\
             .map(lambda x: (x,1))\
             .reduceByKey(lambda x,y: x+y)
     print("training set size: "+str(train_set.count()))
@@ -333,12 +318,12 @@ if __name__ == "__main__":
         occurencies[f]=c1+c2
 
     #parse data as labeled vectors
-    train_data=train_set\
-            .map(lambda x:x[1])\
+    train_data=stars_words\
             .map(lambda x:mapLabeledNLTK(x,features,types))
     validation_data=validation_set\
-        .map(lambda x:x[1])\
-        .map(lambda x:mapLabeledNLTK(x,features,types))
+            .map(lambda x: x[1])\
+            .map(lambda x:parseMultiWordNLTK(x,types))\
+            .map(lambda x:mapLabeledNLTK(x,features,types))
     #train
     print("training...")
     model = LogisticRegressionWithSGD.train(train_data)
