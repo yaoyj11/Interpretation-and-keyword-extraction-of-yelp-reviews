@@ -12,7 +12,8 @@ from array import array
 import math
 #test
 
-def parseWord((stars,text)):
+
+def parseWord((stars,text),types=[]):
     res=[]
     line=remove_punctuation(text)
 
@@ -33,13 +34,12 @@ def tryprint(text):
         print("print error")
     
 
-def parseWordNLTK((stars,text)):
+def parseWordNLTK((stars,text),types):
     import nltk
     res=[]
     words=nltk.word_tokenize(text)
     wtags=nltk.pos_tag(words)
     tryprint(text)
-    types=["CC","CD","CT","JJ","JJR","JJS","MD","NN","NNP","NNPS","NNS","PDT","RB","RBR","RBS","VB","VBD","VBG","VBN","VBP","VBZ"]
     for elem in wtags:
         if(elem[1] in types):
             if(stars>3):
@@ -48,13 +48,12 @@ def parseWordNLTK((stars,text)):
                 res.append((0,elem[0]))
     return res
 
-def parseMultiWordNLTK((stars,text)):
+def parseMultiWordNLTK((stars,text),types):
     res=[]
     import nltk
     words=nltk.word_tokenize(text)
     wtags=nltk.pos_tag(words)
     #tryprint(text)
-    types=["DT","JJ","JJR","JJS","MD","NN","NNP","NNPS","NNS","PDT","RB","RBR","RBS","VB","VBD","VBG","VBN","VBP","VBZ"]
     lastw=""
     for elem in wtags:
         if(elem[1] in types):
@@ -118,14 +117,13 @@ def mapLabeled(tup,features):
         good=1
     return LabeledPoint(good,x)
 
-def mapLabeledNLTK(tup,features):
+def mapLabeledNLTK(tup,features,types):
     stars=tup[0]
     text=tup[1]
     import nltk
     words=nltk.word_tokenize(text)
     wtags=nltk.pos_tag(words)
     #tryprint(text)
-    types=["DT","JJ","JJR","JJS","MD","NN","NNP","NNPS","NNS","PDT","RB","RBR","RBS","VB","VBD","VBG","VBN","VBP","VBZ"]
     lastw=""
     l=[]
     for elem in wtags:
@@ -226,6 +224,7 @@ if __name__ == "__main__":
     log4j = sc._jvm.org.apache.log4j
     log4j.LogManager.getRootLogger().setLevel(log4j.Level.ERROR)
     print("Set log level to Error")
+    types=["DT","JJ","JJR","JJS","MD","NN","NNP","NNPS","NNS","PDT","RB","RBR","RBS","VB","VBD","VBG","VBN","VBP","VBZ"]
 
     # Initialize the spark context.
 
@@ -234,7 +233,7 @@ if __name__ == "__main__":
     #(train_set,validation_set,test_set)=readProcessedData(sc,outputdir,trainpath,validationpath,testpath)
 
     stars_wordcount=train_set\
-            .flatMap(parseMultiWordNLTK)\
+            .flatMap(lambda x:parseMultiWordNLTK(x,types))\
             .map(lambda x: (x,1))\
             .reduceByKey(lambda x,y: x+y)
     print("training set size: "+str(train_set.count()))
@@ -243,7 +242,14 @@ if __name__ == "__main__":
 
     pfeatures=positive.takeOrdered(1000,key=lambda x:-x[1])
     nfeatures=negative.takeOrdered(1000,key=lambda x:-x[1])
+    #####
+    #Task 1: Most frequently used words in positive an dnegative reviews, remove common ones
+    #####
     (uniquepf,uniquenf)=uniqueFeatures(pfeatures,nfeatures)
+
+    #####
+    #Task 2: Most frequently used words in positive an dnegative reviews as features, keep common ones
+    #####
     features=set()
     for f in pfeatures:
         features.add(f[0][1])
@@ -267,11 +273,25 @@ if __name__ == "__main__":
         occurencies[f]=c1+c2
 
     #parse data as labeled vectors
-    train_data=train_set.map(lambda x:mapLabeledNLTK(x,features))
-    validation_data=validation_set.map(lambda x:mapLabeled(x,features))
+    train_data=train_set.map(lambda x:mapLabeledNLTK(x,features,types))
+    validation_data=validation_set.map(lambda x:mapLabeledNLTK(x,features,types))
     #train
     print("training...")
     model = LogisticRegressionWithSGD.train(train_data)
+    coeff=[]
+    for i in range(len(features)):
+        coeff.append((features[i],model._coeff[i],occurencies[features[i]]*model._coeff[i]))
+    #coeffrdd= sc.parallelize(coeff).foreach(print)
+    coeffrdd= sc.parallelize(coeff)
+    topcoeff=coeffrdd.takeOrdered(100,lambda x: -math.fabs(x[1]))
+    print("features with highest cofficient")
+    for e in topcoeff:
+        print(e)
+    topinfluence=coeffrdd.takeOrdered(100,lambda x: -math.fabs(x[2]))
+    print("features with highest influence")
+    for e in topinfluence:
+        print(e)
+    coeffrdd.saveAsTextFile(modeldir)
     #train_err
     train_label_preds=train_data.map(lambda point: (point.label,model.predict(point.features)))
     trainErr=train_label_preds.filter(lambda (v,p): v!=p).count()/float(train_data.count())
@@ -288,17 +308,11 @@ if __name__ == "__main__":
     print("precision "+str(TP/float(TP+FP)))
     print("recall "+str(TP/float(TP+FN)))
     print("F-measure "+str(2*(TP/float(TP+FP))*(TP/float(TP+FN))/(TP/float(TP+FP)+TP/float(TP+FN))))
-    coeff=[]
-    for i in range(len(features)):
-        coeff.append((features[i],model._coeff[i],occurencies[features[i]]*model._coeff[i]))
-    #coeffrdd= sc.parallelize(coeff).foreach(print)
-    coeffrdd= sc.parallelize(coeff)
-    topcoeff=coeffrdd.takeOrdered(100,lambda x: -math.fabs(x[1]))
-    print("features with highest cofficient")
-    for e in topcoeff:
-        print(e)
-    topinfluence=coeffrdd.takeOrdered(100,lambda x: -math.fabs(x[2]))
-    print("features with highest influence")
-    for e in topinfluence:
-        print(e)
-    coeffrdd.saveAsTextFile(modeldir)
+
+    #####
+    #Task 3: Find representative words for each restaurant.
+    #####
+    dataset=train_set++validation_set++test_set
+
+
+
