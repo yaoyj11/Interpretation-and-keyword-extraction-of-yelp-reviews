@@ -244,6 +244,16 @@ def topN(tup,N):
         res=(words,words)
     return (bid,res)
 
+def mapFeatures(line):
+
+    #s=line[3:-1].split("', ")
+    s=re.split(r"['\"],\s",line[3:-1])
+    print(line)
+    print(s)
+    feature=s[0]
+    occ=int(s[1])
+    return (feature,occ)
+
 if __name__ == "__main__":
     conf = SparkConf()
     conf.setMaster("local").setAppName("YELP")
@@ -256,6 +266,7 @@ if __name__ == "__main__":
     reviewfile="yelp_review_part.json"
     businessfile="yelp_business_part.json"
     outputdir="output/"
+    featuredir=outputdir+"feature"
     modeldir=outputdir+"model"
     kwdir=outputdir+"kw"
     trainpath="train"
@@ -312,6 +323,15 @@ if __name__ == "__main__":
                 c2=p[1]
                 break
         occurencies[f]=c1+c2
+    #save features##
+    featuresrdd=sc.parallelize([(k,v) for k,v in occurencies.items()])
+    featuresrdd.saveAsTextFile(featuredir)
+    #read features#
+    features_occurencies=sc.textFile(featuredir+"/*").map(mapFeatures).collect()
+    features=[f[0] for f in features_occurencies]
+    occurencies={}
+    for f in features_occurencies:
+        occurencies[f[0]]=f[1]
 
     #parse data as labeled vectors
     train_data=stars_words\
