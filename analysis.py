@@ -140,12 +140,13 @@ def mapSentences(tup):
     res=[]
     for s in ss:
         if(remove_punctuation(s).replace(" ","")!=""):
-            res.append((bid,ss))
+            res.append((bid,s))
     return res
 
 def getKeyWords(tup,coeff,types=[]):
     bid=tup[0]
-    text=tup[1][1]
+    print(tup[1])
+    text=tup[1]
     import nltk
     words=nltk.word_tokenize(text)
     wtags=nltk.pos_tag(words)
