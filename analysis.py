@@ -57,17 +57,14 @@ def parseMultiWordNLTK((stars,text),types):
     lastw=""
     for elem in wtags:
         if(elem[1] in types):
-            if(stars>3):
-                res.append((1,elem[0]))
-            else:
-                res.append((0,elem[0]))
+            res.append(elem[0])
             if(lastw!=""):
-                if(stars>3):
-                    res.append((1,lastw+" "+elem[0]))
-                else:
-                    res.append((0,lastw+" "+elem[0]))
+                res.append(lastw+" "+elem[0])
             lastw=elem[0]
-    return res
+    good=0
+    if(stars>3):
+        good=1
+    return (good,res)
 
 
 def parseMultiWord((stars,text)):
@@ -127,15 +124,14 @@ def mapLabeled(tup,features):
     return LabeledPoint(good,x)
 
 def mapLabeledNLTK(tups,features,types):
-    l=[x[1] for x in tups]
     x=[]
     for f in features:
         #x.append(s.count(f))
-        if(f in l):
+        if(f in tups[1]):
             x.append(1)
         else:
             x.append(0)
-    return LabeledPoint(tups[0][0],x)
+    return LabeledPoint(tups[0],x)
 
 def mapSentences(tup):
     bid=tup[0]
@@ -278,7 +274,7 @@ if __name__ == "__main__":
             .map(lambda x: x[1])\
             .map(lambda x:parseMultiWordNLTK(x,types))
     stars_wordcount=stars_words\
-            .flatMap(lambda x:x)\
+            .flatMap(lambda x:[(x[0],e) for e in x[1]])\
             .map(lambda x: (x,1))\
             .reduceByKey(lambda x,y: x+y)
     print("training set size: "+str(train_set.count()))
