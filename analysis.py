@@ -391,6 +391,7 @@ if __name__ == "__main__":
         .flatMap(mapSentences)\
         .flatMap(lambda x:getKeyWords(x,coeffmap,types))\
         .reduceByKey(lambda x,y:x+y)\
+        .filter(lambda x: x[1]>5 or x[1]<-5)
         .map(lambda x:(x[0][0],(x[0][1],x[1])))\
         .groupByKey()\
         .map(lambda x:topN(x,N))
