@@ -90,8 +90,8 @@ def parseStarsText(line):
     star=int(line[29:30])
     text=line[34:-3]
     bid=line[3:25]
-    tryprint(line)
-    tryprint(text)
+    #tryprint(line)
+    #tryprint(text)
     return (bid,(star,text))
 
 def parseModel(line):
@@ -145,7 +145,7 @@ def mapSentences(tup):
 
 def getKeyWords(tup,coeff,types=[]):
     bid=tup[0]
-    print(tup[1])
+    #print(tup[1])
     text=tup[1]
     import nltk
     words=nltk.word_tokenize(text)
@@ -249,23 +249,23 @@ def mapFeatures(line):
 
     #s=line[3:-1].split("', ")
     s=re.split(r"['\"],\s",line[3:-1])
-    print(line)
-    print(s)
+    #print(line)
+    #print(s)
     feature=s[0]
     occ=int(s[1])
     return (feature,occ)
 
 if __name__ == "__main__":
     conf = SparkConf()
-    conf.setMaster("local").setAppName("YELP")
+    conf.setMaster("local[8]").setAppName("YELP")
     sc = SparkContext(conf=conf)
     log4j = sc._jvm.org.apache.log4j
     log4j.LogManager.getRootLogger().setLevel(log4j.Level.ERROR)
     print("Set log level to Error")
     num_partitions=10
     inputdir="yelp_dataset/"
-    reviewfile="yelp_review_part.json"
-    businessfile="yelp_business_part.json"
+    reviewfile="yelp_academic_dataset_review.json"
+    businessfile="yelp_academic_dataset_business.json"
     outputdir="output/"
     featuredir=outputdir+"feature"
     modeldir=outputdir+"model"
@@ -273,7 +273,7 @@ if __name__ == "__main__":
     trainpath="train"
     validationpath="validate"
     testpath="test"
-    types=["DT","JJ","JJR","JJS","MD","NN","NNP","NNPS","NNS","PDT","RB","RBR","RBS","VB","VBD","VBG","VBN","VBP","VBZ"]
+    types=["DT","JJ","JJR","JJS","MD","NN","RB","RBR","RBS","VB","VBD","VBG","VBN","VBP","VBZ"]
     N=15
 
     # Initialize the spark context.
@@ -282,9 +282,12 @@ if __name__ == "__main__":
     #(train_set,validation_set,test_set)=readFromDataset(sc,inputdir,reviewfile,businessfile,outputdir,trainpath,validationpath,testpath,num_partitions)
     (train_set,validation_set,test_set)=readProcessedData(sc,outputdir,trainpath,validationpath,testpath)
 
+#    (good,wordslist)
+    train_set=train_set.union(test_set)
     stars_words=train_set\
             .map(lambda x: x[1])\
             .map(lambda x:parseMultiWordNLTK(x,types))
+    #((good,word),count)
     stars_wordcount=stars_words\
             .flatMap(lambda x:[(x[0],e) for e in x[1]])\
             .map(lambda x: (x,1))\
@@ -293,8 +296,8 @@ if __name__ == "__main__":
     positive=stars_wordcount.filter(lambda x:x[0][0]==1)
     negative=stars_wordcount.filter(lambda x:x[0][0]==0)
 
-    pfeatures=positive.takeOrdered(1000,key=lambda x:-x[1])
-    nfeatures=negative.takeOrdered(1000,key=lambda x:-x[1])
+    pfeatures=positive.takeOrdered(1500,key=lambda x:-x[1])
+    nfeatures=negative.takeOrdered(1500,key=lambda x:-x[1])
     #####
     #Task 1: Most frequently used words in positive an dnegative reviews, remove common ones
     #####
@@ -303,15 +306,19 @@ if __name__ == "__main__":
     #####
     #Task 2: Most frequently used words in positive an dnegative reviews as features, keep common ones
     #####
-    features=set()
-    for f in pfeatures:
-        features.add(f[0][1])
-    for f in nfeatures:
-        features.add(f[0][1])
-    features=list(features)
+    #features=set()
+    #for f in pfeatures:
+    #    features.add(f[0][1])
+    #for f in nfeatures:
+    #    features.add(f[0][1])
+    #features=list(features)
+
+    #take unique features
+    features=uniquepf+uniquenf
     print(features)
     print(str(len(features))+" features get")
     occurencies={}
+    #features=[e[0][1] for e in features]
     for f in features:
         c1=0
         c2=0
@@ -335,6 +342,7 @@ if __name__ == "__main__":
         occurencies[f[0]]=f[1]
 
     #parse data as labeled vectors
+    #(good,words)=>(good,vector)
     train_data=stars_words\
             .map(lambda x:mapLabeledNLTK(x,features,types))
     validation_data=validation_set\
@@ -347,6 +355,9 @@ if __name__ == "__main__":
     coeff=[]
     for i in range(len(features)):
         coeff.append((features[i],model._coeff[i],occurencies[features[i]]*model._coeff[i]))
+    print("model intercept:")
+    print(str(model._intercept))
+
     #coeffrdd= sc.parallelize(coeff).foreach(print)
     coeffrdd= sc.parallelize(coeff)
     topcoeff=coeffrdd.takeOrdered(100,lambda x: -math.fabs(x[1]))
@@ -362,6 +373,7 @@ if __name__ == "__main__":
     train_label_preds=train_data.map(lambda point: (point.label,model.predict(point.features)))
     trainErr=train_label_preds.filter(lambda (v,p): v!=p).count()/float(train_data.count())
     print("training finished, training error: "+str(trainErr))
+
     #valid_err
     valid_label_preds=validation_data.map(lambda point:(point.label,model.predict(point.features)))
     validErr=valid_label_preds.filter(lambda (v,p):v!=p).count()/float(validation_data.count())
@@ -381,23 +393,26 @@ if __name__ == "__main__":
     #####
     #Task 3: Find representative words for each restaurant.
     #####
-    coeffrdd=sc.textFile(modeldir+"/*").map(parseModel) 
-    coeff=coeffrdd.collect()
-    coeffmap={}
-    for c in coeff:
-        coeffmap[c[0]]=c[1]
-    dataset=train_set.union(validation_set).union(test_set)
-    keywords=dataset\
-        .flatMap(mapSentences)\
-        .flatMap(lambda x:getKeyWords(x,coeffmap,types))\
-        .reduceByKey(lambda x,y:x+y)\
-        .filter(lambda x: x[1]>5 or x[1]<-5)
-        .map(lambda x:(x[0][0],(x[0][1],x[1])))\
-        .groupByKey()\
-        .map(lambda x:topN(x,N))
-#        .saveAsTextFile(kwdir)
-    #    .foreach(print)
-    keywords.saveAsTextFile(kwdir)
-
-    keywords.foreach(print)
-
+    #read model
+#    coeffrdd=sc.textFile(modeldir+"/*").map(parseModel)
+#    coeff=coeffrdd.collect()
+#    #{feature:coeff}
+#    coeffmap={}
+#    for c in coeff:
+#        coeffmap[c[0]]=c[1]
+#    dataset=train_set.union(validation_set).union(test_set)
+#    #(bid,(stars,text))=>(bid,sentence)=>((bid,wordnoun),score)=>(bid,[(noun,score)])
+#    keywords=dataset\
+#        .flatMap(mapSentences)\
+#        .flatMap(lambda x:getKeyWords(x,coeffmap,types))\
+#        .reduceByKey(lambda x,y:x+y)\
+#        .filter(lambda x: x[1]>5 or x[1]<-5)
+#        .map(lambda x:(x[0][0],(x[0][1],x[1])))\
+#        .groupByKey()\
+#        .map(lambda x:topN(x,N))
+##        .saveAsTextFile(kwdir)
+#    #    .foreach(print)
+#    keywords.saveAsTextFile(kwdir)
+#
+#    keywords.foreach(print)
+#
