@@ -13,19 +13,6 @@ import math
 #test
 
 
-def parseWord((stars,text),types=[]):
-    res=[]
-    line=remove_punctuation(text)
-
-    words=re.split(r"\s+",line)
-    nonEmpty=[elem for elem in words if elem!=""]
-
-    for w in nonEmpty:
-        if(stars>3):
-            res.append((1,w))
-        else:
-            res.append((0,w))
-    return res
 
 def tryprint(text):
     try:
@@ -34,19 +21,6 @@ def tryprint(text):
         print("print error")
     
 
-def parseWordNLTK((stars,text),types):
-    import nltk
-    res=[]
-    words=nltk.word_tokenize(text)
-    wtags=nltk.pos_tag(words)
-    tryprint(text)
-    for elem in wtags:
-        if(elem[1] in types):
-            if(stars>3):
-                res.append((1,elem[0]))
-            else:
-                res.append((0,elem[0]))
-    return res
 
 def parseMultiWordNLTK((stars,text),types):
     res=[]
@@ -55,36 +29,19 @@ def parseMultiWordNLTK((stars,text),types):
     wtags=nltk.pos_tag(words)
     #tryprint(text)
     lastw=""
+    lastt=""
     for elem in wtags:
         if(elem[1] in types):
-            res.append(elem[0])
-            if(lastw!=""):
-                res.append(lastw+" "+elem[0])
-            lastw=elem[0]
+            res.append(elem[0].lower())
+            if(lastw!="" and (lastt+elem[1])in types):
+                res.append(lastw+" "+elem[0].lower())
+            lastw=elem[0].lower()
+            lastt=elem[1]
     good=0
     if(stars>3):
         good=1
     return (good,res)
 
-
-def parseMultiWord((stars,text)):
-    res=[]
-    line=remove_punctuation(text)
-
-    words=re.split(r"\s+",line)
-    nonEmpty=[elem for elem in words if elem!=""]
-    for w in nonEmpty:
-        if(stars>3):
-            res.append((1,w))
-        else:
-            res.append((0,w))
-    for i in range(len(nonEmpty)-1):
-        if(stars>3):
-            res.append((1,nonEmpty[i]+" "+nonEmpty[i+1]))
-        else:
-            res.append((0,nonEmpty[i]+" "+nonEmpty[i+1]))
-
-    return res
 
 def parseStarsText(line):
     star=int(line[29:30])
@@ -273,7 +230,7 @@ if __name__ == "__main__":
     trainpath="train"
     validationpath="validate"
     testpath="test"
-    types=["DT","JJ","JJR","JJS","MD","NN","RB","RBR","RBS","VB","VBD","VBG","VBN","VBP","VBZ"]
+    types=["DT","JJ","JJR","JJS","MD","NN","RB","RBR","RBS","VB","VBD","VBG","VBN","VBP","VBZ","RBVB","RBJJ"]
     N=15
 
     # Initialize the spark context.
