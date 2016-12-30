@@ -230,7 +230,7 @@ if __name__ == "__main__":
     trainpath="train"
     validationpath="validate"
     testpath="test"
-    types=["DT","JJ","JJR","JJS","MD","NN","RB","RBR","RBS","VB","VBD","VBG","VBN","VBP","VBZ","RBVB","RBJJ"]
+    types=[,"CC","CD","DT","JJ","JJR","JJS","MD","NN","RB","RBR","RBS","VB","VBD","VBG","VBN","VBP","VBZ","RBVB","RBJJ"]
     N=15
 
     # Initialize the spark context.
@@ -253,8 +253,8 @@ if __name__ == "__main__":
     positive=stars_wordcount.filter(lambda x:x[0][0]==1)
     negative=stars_wordcount.filter(lambda x:x[0][0]==0)
 
-    pfeatures=positive.takeOrdered(1500,key=lambda x:-x[1])
-    nfeatures=negative.takeOrdered(1500,key=lambda x:-x[1])
+    pfeatures=positive.takeOrdered(2000,key=lambda x:-x[1])
+    nfeatures=negative.takeOrdered(2000,key=lambda x:-x[1])
     #####
     #Task 1: Most frequently used words in positive an dnegative reviews, remove common ones
     #####
@@ -264,14 +264,14 @@ if __name__ == "__main__":
     #Task 2: Most frequently used words in positive an dnegative reviews as features, keep common ones
     #####
     #features=set()
-    #for f in pfeatures:
-    #    features.add(f[0][1])
-    #for f in nfeatures:
-    #    features.add(f[0][1])
-    #features=list(features)
+    for f in pfeatures:
+        features.add(f[0][1])
+    for f in nfeatures:
+        features.add(f[0][1])
+    features=list(features)
 
     #take unique features
-    features=uniquepf+uniquenf
+    #features=uniquepf+uniquenf
     print(features)
     print(str(len(features))+" features get")
     occurencies={}
