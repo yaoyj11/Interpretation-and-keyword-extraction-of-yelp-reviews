@@ -225,12 +225,14 @@ if __name__ == "__main__":
     businessfile="yelp_academic_dataset_business.json"
     outputdir="output/"
     featuredir=outputdir+"feature"
+    pfeaturedir=outputdir+"pfeature"
+    nfeaturedir=outputdir+"nfeature"
     modeldir=outputdir+"model"
     kwdir=outputdir+"kw"
     trainpath="train"
     validationpath="validate"
     testpath="test"
-    types=[,"CC","CD","DT","JJ","JJR","JJS","MD","NN","RB","RBR","RBS","VB","VBD","VBG","VBN","VBP","VBZ","RBVB","RBJJ"]
+    types=["CC","CD","DT","JJ","JJR","JJS","MD","NN","RB","RBR","RBS","VB","VBD","VBG","VBN","VBP","VBZ","RBVB","RBJJ"]
     N=15
 
     # Initialize the spark context.
@@ -254,9 +256,12 @@ if __name__ == "__main__":
     negative=stars_wordcount.filter(lambda x:x[0][0]==0)
 
     pfeatures=positive.takeOrdered(2000,key=lambda x:-x[1])
+    sc.parallelize(pfeatures).saveAsTextFile(pfeaturedir)
     nfeatures=negative.takeOrdered(2000,key=lambda x:-x[1])
+    sc.parallelize(nfeatures).saveAsTextFile(nfeaturedir)
     #####
     #Task 1: Most frequently used words in positive an dnegative reviews, remove common ones
+    #(stars,word),count
     #####
     (uniquepf,uniquenf)=uniqueFeatures(pfeatures,nfeatures)
 
@@ -264,14 +269,14 @@ if __name__ == "__main__":
     #Task 2: Most frequently used words in positive an dnegative reviews as features, keep common ones
     #####
     #features=set()
-    for f in pfeatures:
-        features.add(f[0][1])
-    for f in nfeatures:
-        features.add(f[0][1])
-    features=list(features)
+    #for f in pfeatures:
+    #    features.add(f[0][1])
+    #for f in nfeatures:
+    #    features.add(f[0][1])
+    #features=list(features)
 
     #take unique features
-    #features=uniquepf+uniquenf
+    features=uniquepf+uniquenf
     print(features)
     print(str(len(features))+" features get")
     occurencies={}
