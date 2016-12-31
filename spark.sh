@@ -1,1 +1,2 @@
-spark-submit yelp_analysis.py
+#rm -r keywords wordtext
+spark-submit analysis.py
